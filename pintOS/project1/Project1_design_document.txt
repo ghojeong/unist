@@ -1,0 +1,149 @@
+			+--------------------+
+			|        CS 140      |
+			| PROJECT 1: THREADS |
+			|   DESIGN DOCUMENT  |
+			+--------------------+
+				   
+---- GROUP ----
+
+>> Fill in the names and email addresses of your group members.
+
+FirstName LastName <email@domain.example>
+JeongWan Gho, uni20131674, //e-mail
+FirstName LastName <email@domain.example>
+YeonHyeok Jeong, uni20131543, fktmfpeps@unist.ac.kr
+FirstName LastName <email@domain.example>
+
+---- PRELIMINARIES ----
+
+>> If you have any preliminary comments on your submission, notes for the
+>> TAs, or extra credit, please give them here.
+
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation, course
+>> text, lecture notes, and course staff.
+
+			     ALARM CLOCK
+			     ===========
+
+---- DATA STRUCTURES ----
+
+>> A1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+//int64_t sleep_tick (in thread class) to set each threads sleep time
+//struct thread blocked_list to save the threads which currently be slept (in thread.c)
+
+---- ALGORITHMS ----
+
+>> A2: Briefly describe what happens in a call to timer_sleep(),
+>> including the effects of the timer interrupt handler.
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                                                      ///
+//  After modification, timer_sleep() function get the current ticks and then add ticks                                                 ///
+//  to get estimated wake time, after that, it blocks other interrupts by calling intr_disable()                                        ///
+//  and then, it calls the function block_func(), which will pop the thread at the ready_list, and set thread's sleep_tick value        ///
+//  and then, insert it to the blocked_list, sorted with time and priority, after that, it calls thread_block(0 function                ///
+//  to, actually, block the execution of thread and schedule another thread                                                             ///
+//                                                                                                                                      ///
+//  To check whether there are thread to wake, we used the function timer_interrupt() in timer.c which updates ticks,                   ///
+//  after updating the tick value, it calls the function unblock_func, with the current tick value,                                     ///
+//  this function checks tick values of the blocked_list, if there are threads whose sleep_tick is smaller than current tick,           ///
+//  then it will pop that thread from the blocked_list (with high priority first), and call thread_unblock() funciton with that thread  ///
+//  then thread_unblock() will unblock the given thread and will schedule the threads                                                   ///
+//  next_thread_to_run function, which will be called by schedule() function, will check ready_list with high priority, and schedule    ///
+//  most prioriy thread                                                                                                                 ///
+//                                                                                                                                      ///
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+>> A3: What steps are taken to minimize the amount of time spent in
+>> the timer interrupt handler?
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                                                      ///
+//  timer_interrupt function just calls unblock_func, and this function will first check whether there are threads in blocked_list      ///
+//  and then, check whether the last element of the blocked_list's sleep_tick value is larger or smaller than the current tick value    ///
+//  then, do the linear search                                                                                                          ///
+//                                                                                                                                      ///
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+---- RATIONALE ----
+
+>> A6: Why did you choose this design?  In what ways is it superior to
+>> another design you considered?
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                                                          ///
+//  As the tick value updated every time, although the threads are being executed(except intr_disable)                                      ///
+//  we can easily check the tick value                                                                                                      ///
+//  and by defining two function, block_func() and unblock_func(), which will be called just in timer_sleep() and                           ///
+//  timer_interrupt(), we can prevent unwanted situations, for example, other functions which will call thread_block() or thread_unblock()  ///
+//                                                                                                                                          ///
+//  Actually, i don't think that my design is superior to another design, when i design the code, at first, i just thought about            ///
+//  Alarm-multiple, but after i successfully finished the alarm-multiple, i realized that i have to consider other things, like             ///
+//  alarm-synchronous, alarm-priority, so, my code become more complicated, and even one part of my code requires O(n^3) running time       ///
+//  which is, terrible, so i admit that my code design is poor.                                                                             ///
+//                                                                                                                                          ///
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+			 PRIORITY SCHEDULING
+			 ===================
+
+---- DATA STRUCTURES ----
+
+>> B1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                                  //
+//  We just used the function, and variable defined inside of the thread.c, so there isn't any defined variables    //
+//														    //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+---- RATIONALE ----
+
+>> B7: Why did you choose this design?  In what ways is it superior to
+>> another design you considered?
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//														          ///
+//  When the thread is created by calling thread_create(), it set the priority of this threads, so we decided to call     ///
+//  thread_yield() function, if the priority of this thread is greater than the current_thread()'s priority, to change    ///
+//  at the thread_set_priority() function, it linearly search the ready_list, to check whether we need to change          ///
+//  thread to run                                                                                                         ///
+//															  ///
+//  As we used already defined variables and functions, with modified, and as we used the part of code in alarm-priority  ///
+//  to eliminate unnecessary work to do, we think that our design is somewhat superior than the design which will use     ///
+//  another search to find thread to run at scheduling 									  ///
+//															  ///
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+			   SURVEY QUESTIONS
+			   ================
+
+Answering these questions is optional, but it will help us improve the
+course in future quarters.  Feel free to tell us anything you
+want--these questions are just to spur your thoughts.  You may also
+choose to respond anonymously in the course evaluations at the end of
+the quarter.
+
+>> In your opinion, was this assignment, or any one of the three problems
+>> in it, too easy or too hard?  Did it take too long or too little time?
+
+>> Did you find that working on a particular part of the assignment gave
+>> you greater insight into some aspect of OS design?
+
+>> Is there some particular fact or hint we should give students in
+>> future quarters to help them solve the problems?  Conversely, did you
+>> find any of our guidance to be misleading?
+
+>> Do you have any suggestions for the TAs to more effectively assist
+>> students, either for future quarters or the remaining projects?
+
+>> Any other comments?

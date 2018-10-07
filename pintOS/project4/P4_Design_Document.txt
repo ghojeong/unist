@@ -1,0 +1,113 @@
+       	       	     +-------------------------+
+		     |		CS 140	       |
+		     | PROJECT 4: FILE SYSTEMS |
+		     |	   DESIGN DOCUMENT     |
+		     +-------------------------+
+
+---- GROUP ----
+
+>> Fill in the names and email addresses of your group members.
+
+Jeong YeonHyeok fktmfpeps@unist.ac.kr
+
+
+---- PRELIMINARIES ----
+
+>> If you have any preliminary comments on your submission, notes for the
+>> TAs, or extra credit, please give them here.
+
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation, course
+>> text, lecture notes, and course staff.
+
+		     INDEXED AND EXTENSIBLE FILES
+		     ============================
+
+---- DATA STRUCTURES ----
+
+>> A1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+changed unused array in inode_disk into index[62][2];
+
+struct inode_disk {
+  --------------
+
+  uint32_t index[62][2];
+  uint32_t unused;
+
+};
+
+>> A2: What is the maximum size of a file supported by your inode
+>> structure?  Show your work.
+
+It depends on how we write into the file, in my design, when it should expand the file,
+it increases index one by one, so if we expand almost 512 bytes, which is sector size, as no matter what the size,
+index would increase by one, minimum possible file size is 512 * 62 byte and maximum could be partition size
+
+---- SYNCHRONIZATION ----
+
+>> A3: Explain how your code avoids a race if two processes attempt to
+>> extend a file at the same time.
+I didn't considered this, but we can avoid race condition by lock, semaphore, so that exactly one process can extend file at the same time
+
+
+>> A4: Suppose processes A and B both have file F open, both
+>> positioned at end-of-file.  If A reads and B writes F at the same
+>> time, A may read all, part, or none of what B writes.  However, A
+>> may not read data other than what B writes, e.g. if B writes
+>> nonzero data, A is not allowed to see all zeros.  Explain how your
+>> code avoids this race.
+
+I also didn't considered it...but we can also avoid it by using lock, semaphore.
+in case of reading, it would be not a problem if multiple process try to read the file, however
+in case of write, or read/write, we should use lock or semaphore to prevent read/write at the same time
+
+>> A5: Explain how your synchronization design provides "fairness".
+>> File access is "fair" if readers cannot indefinitely block writers
+>> or vice versa.  That is, many processes reading from a file cannot
+>> prevent forever another process from writing the file, and many
+>> processes writing to a file cannot prevent another process forever
+>> from reading the file.
+
+Although i didn't considered this situation, we can use similar way of round robin, giving particular time for the whole read and whole write
+If we do this, each reading could return different data, as write could write at the position, where the read system call try to read
+it would be better, finishing one read or write operation for each time slot, by doing this, we can at least provide contiguous information for each system call
+
+---- RATIONALE ----
+
+>> A6: Is your inode structure a multilevel index?  If so, why did you
+>> choose this particular combination of direct, indirect, and doubly
+>> indirect blocks?  If not, why did you choose an alternative inode
+>> structure, and what advantages and disadvantages does your
+>> structure have, compared to a multilevel index?
+
+I didn't used the combination of direct, indirect, and doubly indireck blocks,
+i just used indexed block, actually, it doesn't have advantage than the combination of direct, indirect, and doubly indirect blocks
+it just have small advantage in disk access, as we don't need to access disk twice, and simple
+but as i know that we don't have to do all of the implementation, i choosed the simple way :)
+
+			   SURVEY QUESTIONS
+			   ================
+
+Answering these questions is optional, but it will help us improve the
+course in future quarters.  Feel free to tell us anything you
+want--these questions are just to spur your thoughts.  You may also
+choose to respond anonymously in the course evaluations at the end of
+the quarter.
+
+>> In your opinion, was this assignment, or any one of the three problems
+>> in it, too easy or too hard?  Did it take too long or too little time?
+
+>> Did you find that working on a particular part of the assignment gave
+>> you greater insight into some aspect of OS design?
+
+>> Is there some particular fact or hint we should give students in
+>> future quarters to help them solve the problems?  Conversely, did you
+>> find any of our guidance to be misleading?
+
+>> Do you have any suggestions for the TAs to more effectively assist
+>> students in future quarters?
+
+>> Any other comments?

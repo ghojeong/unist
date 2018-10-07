@@ -1,0 +1,259 @@
+		     +--------------------------+
+		     | PROJECT 2: USER PROGRAMS	|
+		     | 	   DESIGN DOCUMENT     	|
+		     +--------------------------+
+
+---- GROUP ----
+
+>> Fill in the names and email addresses of your group members.
+
+YeonHeok Jung fktmfpeps@unist.ac.kr
+
+JeongWan Gho donky3@unist.ac.kr
+
+
+---- PRELIMINARIES ----
+
+>> If you have any preliminary comments on your submission, notes for the
+>> TAs, or extra credit, please give them here.
+
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation, course
+>> text, lecture notes, and course staff.
+
+		
+			     SYSTEM CALLS
+			     ============
+
+---- DATA STRUCTURES ----
+
+>> B1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+struct list exec_file_list;
+
+//list, which holds the exec_file elements
+
+struct exec_file {
+  struct list_elem elem;
+  char name[16];
+};
+
+//list element, which holds the all file name currently executed
+//if write system calls require the file currently opened, then this will be used to detect
+
+struct child_status {
+   struct thread *child_thread;  
+   tid_t child_tid;              
+   int status;                   
+   struct list_elem elem;        
+   bool exit;                    
+   struct semaphore sema_;
+};
+
+//list element for thread which holds information about its child threads
+//this struct is used for exec, wait
+
+struct file_descriptor {
+   bool running;
+   struct file *file_;
+   struct list_elem elem;
+   char *file_name;
+   int fn;
+   int count;
+};
+
+//list element for thread which holds information about the file that thread opened
+
+struct thread
+  {
+    /* Owned by thread.c. */
+    tid_t tid;                          /* Thread identifier. */
+    enum thread_status status;          /* Thread state. */
+    char name[16];                      /* Name (for debugging purposes). */
+    uint8_t *stack;                     /* Saved stack pointer. */
+    int priority;                       /* Priority. */
+    struct list_elem allelem;           /* List element for all threads list. */
+
+//modified code
+    struct child_status *status_ptr; //pointer to the parent's child_status_list elemenet
+    struct thread *parent_thread;    //pointer to the parent thread
+    struct list child_status_list;   //child_status list to share information with child
+    tid_t waiting_tid;               //tid value which current thread is waiting for end
+    struct list file_list;           //list of file_list
+    int file_num;                    //value of each thread's number of file that opened
+
+    /* Shared between thread.c and synch.c. */
+    struct list_elem elem;              /* List element. */
+
+#ifdef USERPROG
+    /* Owned by userprog/process.c. */
+    uint32_t *pagedir;                  /* Page directory. */
+#endif
+
+    /* Owned by thread.c. */
+    unsigned magic;                     /* Detects stack overflow. */
+  };
+
+>> B2: Describe how file descriptors are associated with open files.
+>> Are file descriptors unique within the entire OS or just within a
+>> single process?
+
+Each threads holds their own file descriptor list, so that, file descriptors unique within a
+single process, however, exec_file_list will holds the name of the file which is currently execute
+in the entire OS, to prevent to write to the file, which is currently running
+
+---- ALGORITHMS ----
+
+>> B3: Describe your code for reading and writing user data from the
+>> kernel.
+
+read and write first check the arguments, specially buffer information,
+if buffer don't reside in user_vaddr, it will exit,
+and then check whether it can get page directory properly, if can't, then  exit
+if can, then properly assign argument values, and then call read and write functions,
+
+read function checks the fd number, if 0 then it reads input from the buffer, if not,
+it will iterate through its own file_list to find matching file descriptor number
+if not found, then exit, if found then return the function call file_read(), with
+matching file and buffer, size.
+
+in case of write function, it also checks fd number, if fd == 1 then it will prints the contents of
+buffer by using putbuf function,
+if not, find matching file descriptor number from its own file_list, 
+if not found proper fd from its own file_list, exit,
+if found, then check whether that file descriptor's file is currently running, by search through
+the exec_file_list, if that file is currently running, then return 0, if not, return file_write
+function call with proper argument
+
+>> B4: Suppose a system call causes a full page (4,096 bytes) of data
+>> to be copied from user space into the kernel.  What is the least
+>> and the greatest possible number of inspections of the page table
+>> (e.g. calls to pagedir_get_page()) that might result?  What about
+>> for a system call that only copies 2 bytes of data?  Is there room
+>> for improvement in these numbers, and how much?
+
+least possible number of page table would be 0 and greatest would be 4,096 bytes, and
+although we only copies 2 bytes of data, it will read the whole pages of thread,
+if we want to read only 2 bytes of data, then we would have to vertify the exact location of the
+page table, and also should check whether it belongs to the user memory address
+
+>> B5: Briefly describe your implementation of the "wait" system call
+>> and how it interacts with process termination.
+
+wait function calls process_wait funtion, then it checks whether the given tid is
+its child, by iterate through child_status_list, if not found, return -1,
+as the list entry child_status has the pointer to the thread, and this pointer becomes
+NULL when the child process exit, and, as the child_status also has the variable, status, which
+holds the information about the exit value, it can return child's exit status value, although the
+child thread has been exited,
+if child thread is currently running, then it sets its waiting_tid value as child_tid, to prevent
+for waiting same child process, and, to synchronize, it will keep trying to down the sema value of
+child_status's sema, by calling sema_try_down() and check child_status's exit value become true
+this two conditions, sema_try_down and child->exit, will indicate whether the child thread exited or
+not, if condition satisfied(which means, while loop becomes false), then ti will return child->status
+value
+
+>> B6: Any access to user program memory at a user-specified address
+>> can fail due to a bad pointer value.  Such accesses must cause the
+>> process to be terminated.  System calls are fraught with such
+>> accesses, e.g. a "write" system call requires reading the system
+>> call number from the user stack, then each of the call's three
+>> arguments, then an arbitrary amount of user memory, and any of
+>> these can fail at any point.  This poses a design and
+>> error-handling problem: how do you best avoid obscuring the primary
+>> function of code in a morass of error-handling?  Furthermore, when
+>> an error is detected, how do you ensure that all temporarily
+>> allocated resources (locks, buffers, etc.) are freed?  In a few
+>> paragraphs, describe the strategy or strategies you adopted for
+>> managing these issues.  Give an example.
+
+first, check whether each pointer to argument is valid by checking pointet points to the
+valid address space, in our case, min address for user space is 0x08084000, and maximum user space
+is known as less that PHYS_BASE, and can check by is_user_vaddr() function, if those error occurs,
+then before call exit, just free the temporarily allocated resources, to prevent memory leak
+
+---- SYNCHRONIZATION ----
+
+>> B7: The "exec" system call returns -1 if loading the new executable
+>> fails, so it cannot return before the new executable has completed
+>> loading.  How does your code ensure this?  How is the load
+>> success/failure status passed back to the thread that calls "exec"?
+
+we just blocked the thread(we tried to use lock and sema, but have some difficulty so changed to block)
+and the child process(thread) which will be made by thread_create function will call unblock function,
+as it has the pointer to its parent thread, at the end of the start_process function,
+then parent thread(which calls process_execute) checks the child_status_list, as the child process
+push child_status element to the parent thread's child_status_list during the start_process
+as the child_status element also has the variable child_tid, which holds the information about the
+child's tid, it compare it with tid value, if it isn't same, then it will free the page and return -1
+if same, then it will return tid of child process
+
+>> B8: Consider parent process P with child process C.  How do you
+>> ensure proper synchronization and avoid race conditions when P
+>> calls wait(C) before C exits?  After C exits?  How do you ensure
+>> that all resources are freed in each case?  How about when P
+>> terminates without waiting, before C exits?  After C exits?  Are
+>> there any special cases?
+
+By using some shared object between parent processe and child process, and with the help of
+semaphore or lock, before accessing, each thread requires lock, or semaphore so that only one
+thread can access at the same time, if parent child should wait for child process to exit,
+then keep acquiring lock, or sema and release, until the child exit, if we put another variable,
+which points to child process in the shared object, then we can know whether the child exited or
+not by this pointer. to ensure that all resources are freed, we free all resources when each thread
+exit, that means, suppose that parent thread exit faster than child thread, then it will free the
+shared object between child and parent process, if child process has pointer to the shared object,
+then if that pointer points to NULL, we can know that the parent thread exit faster than child
+
+---- RATIONALE ----
+
+>> B9: Why did you choose to implement access to user memory from the
+>> kernel in the way that you did?
+
+as we don't have any idea about how to implement it, we tried to use existing functions at the pintos,
+by using is_user_vaddr(), get_pagedir, and one more information given by manual, 0x0808400, the min
+address of the vaddr, as what we have to do is to check whether the argument points the kernel memory
+area, and whether corresponding page directory exist or not, but this implementation will not be able
+to find the access to the another thread(process)'s user memory
+
+>> B10: What advantages or disadvantages can you see to your design
+>> for file descriptors?
+
+in our design, as each threads hold its own file_descriptor, multiple threads can access same file
+at the same time, but it requires too many unnecessarily space.
+as our file_descriptor implementation have many variables like running(the file is currently running or not), file_name, file_descriptor number, and also, it has exec_file_list which holds the names of the
+file that are currently running, we can prevent many unwanted, or dangerous situations,
+but as i said, it requires too many space for other variables for each file
+
+>> B11: The default tid_t to pid_t mapping is the identity mapping.
+>> If you changed it, what advantages are there to your approach?
+
+if tid_t and pid_t mapping is the identity mapping, it means that one-to-one matching, so that
+each kernel thread can run just one thread, if we change it, then we can make it to the one-to-many
+matching, which means we can run multiple user thread by one kernel thread, thus parallelism improves
+
+			   SURVEY QUESTIONS
+			   ================
+
+Answering these questions is optional, but it will help us improve the
+course in future quarters.  Feel free to tell us anything you
+want--these questions are just to spur your thoughts.  You may also
+choose to respond anonymously in the course evaluations at the end of
+the quarter.
+
+>> In your opinion, was this assignment, or any one of the three problems
+>> in it, too easy or too hard?  Did it take too long or too little time?
+
+>> Did you find that working on a particular part of the assignment gave
+>> you greater insight into some aspect of OS design?
+
+>> Is there some particular fact or hint we should give students in
+>> future quarters to help them solve the problems?  Conversely, did you
+>> find any of our guidance to be misleading?
+
+>> Do you have any suggestions for the TAs to more effectively assist
+>> students, either for future quarters or the remaining projects?
+
+>> Any other comments?
